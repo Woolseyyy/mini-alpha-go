@@ -47,6 +47,22 @@ const int RankofPos[SideLength][SideLength] =
                 30, 5,20,15,15,20, 5,30
         };
 
+void split(std::string& s, std::string& delim,std::vector< std::string >* ret)
+{
+    size_t last = 0;
+    size_t index=s.find_first_of(delim,last);
+    while (index!=std::string::npos)
+    {
+        ret->push_back(s.substr(last,index-last));
+        last=index+1;
+        index=s.find_first_of(delim,last);
+    }
+    if (index-last>0)
+    {
+        ret->push_back(s.substr(last,index-last));
+    }
+}
+
 class FieldCache
 {
 public:
@@ -67,10 +83,94 @@ public:
     FieldCache* pre_node;
     map<_Coordinate,FieldCache*> next_node;
     int visitcount,totalrank;
+    int pre_node_id;
+    map<_Coordinate, int> next_node_id;
     double value() const
     {
         if(visitcount==0) return -100;
         return (double)totalrank/visitcount;
+    }
+    string toString(){
+        string str;
+
+        //array
+        for(int i=0; i<SideLength; i++){
+            for(int j=0; j<SideLength; j++){
+                str += board[i][j];
+                str += " ";
+            }
+        }
+        str += "\t";
+
+        //Stone Num
+        str += StoneNum[0] + " " + StoneNum[1];
+        str += "\t";
+
+        //ColorToPlay
+        str += ColorToPlay;
+        str += "\t";
+
+        //pre_node
+        str += (int)pre_node;
+        str += "\t";
+
+        //next_node
+        for(map<_Coordinate, FieldCache*>::iterator it = next_node.begin(); it != next_node.end(); it++){
+            str += (int)(it->second);
+            str += " ";
+        }
+        str += "\t";
+
+        //visitcount,totalrank;
+        str += visitcount;
+        str += " ";
+        str += totalrank;
+
+        return str;
+    }
+    void decodeString(string str){
+        vector<string> strArray;
+        string delim = "\t";
+        split(str, delim, &strArray);
+
+        string subDelim = " ";
+        //array
+        vector<string> boardStr;
+        split(strArray[0], subDelim, &boardStr);
+        for(int i=0; i<SideLength; i++){
+            for(int j=0; j<SideLength; j++){
+                board[i][j] = stoi(boardStr[i*SideLength+SideLength]);
+            }
+        }
+
+        //Stone Num
+        vector<string> stoneNumStr;
+        split(strArray[1], subDelim, &stoneNumStr);
+        StoneNum[0] = stoi(stoneNumStr[0]);
+        StoneNum[1] = atoi(stoneNumStr[1]);
+
+        //ColorToPlay
+        ColorToPlay = stoi(strArray[2]);
+
+        //pre_node
+        pre_node_id = stoi(strArray[3]);
+
+        //next_node
+        vector<string> nodeStrArray;
+        split(strArray[4], subDelim, &nodeStrArray);
+        string thirdDelim = ",";
+        vector<string> tempStrArray;
+        for(vector<string>::iterator it = nodeStrArray.begin(); it != nodeStrArray.end(); it++){
+            split(*it, thirdDelim, &tempStrArray);
+            next_node_id.insert(make_pair(
+                    make_pair(stoi(tempStrArray[0]), stoi(tempStrArray[1])),
+                    stoi(tempStrArray[2])
+            ));
+        }
+
+        //visitcount,totalrank;
+        visitcount = stoi(strArray[5]);
+        totalrank = stoi(strArray[6]);
     }
 };
 class Othello
@@ -78,6 +178,8 @@ class Othello
     _GridType board[SideLength][SideLength];
     int StoneNum[2];//White and Black
     _Color ColorToPlay,MyColor;
+    FieldCache* TreeRoot, *TreeCurrent;
+    map<int, FieldCache*> id_map;
 
     void BackUp(FieldCache& cache)
     {
@@ -188,6 +290,7 @@ class Othello
         {
             board[pos.second][pos.first]=temp;
             StoneNum[(color+1)/2]++;
+            TreeCurrent = (TreeCurrent->next_node.find(pos))->second;
             return true;
         }
         else return false;
@@ -487,10 +590,11 @@ public:
     _Coordinate MCTS()
     {
         FieldCache *root_node,*current_node;
-        root_node=new FieldCache();
+        root_node = TreeCurrent;
+        //root_node=new FieldCache();
         pair<FieldCache*,bool> res;
         int r[2];
-        BackUp(*root_node);
+        //BackUp(*root_node);
         while(clock()-t1<TIMELIMIT)
         {
             current_node=root_node;
@@ -503,6 +607,7 @@ public:
             Simulation(current_node,r);
             BackPropagation(current_node,r);
             Recovery(*root_node);
+            TreeCurrent = root_node;
         }
         _Coordinate choice=make_pair(-1,-1);
         double temp,best=-100;
@@ -554,6 +659,62 @@ public:
         }
 #endif
     }
+    void GetTree(){
+        ifstream ifile;
+        ifile.open("tree");
+        char buffer[510];
+
+        //root
+        ifile.getline(buffer, 510);
+        FieldCache* chache = new FieldCache();
+        string delium = ":";
+        vector<string> line;
+        string lineStr(buffer);
+        split(lineStr, delium, &line);
+
+        chache->decodeString(line[1]);
+        id_map.insert(make_pair(stoi(line[0]), chache));
+
+        TreeCurrent = TreeRoot = chache;
+
+        while(!ifile.eof()){
+            ifile.getline(buffer, 510);
+            FieldCache* chache = new FieldCache();
+            string delium = ":";
+            vector<string> line;
+            string lineStr(buffer);
+            split(lineStr, delium, &line);
+
+            chache->decodeString(line[1]);
+            id_map.insert(make_pair(stoi(line[0]), chache));
+        }
+
+        //link them
+        for(map<int, FieldCache*>::iterator it = id_map.begin(); it!= id_map.end(); it++){
+            FieldCache* fc = it->second;
+            fc->pre_node = id_map.find(fc->pre_node_id)->second;
+            map<_Coordinate, int> next_node_id = fc->next_node_id;
+            for(map<_Coordinate, int>::iterator it2 = next_node_id.begin(); it2!=next_node_id.end(); it++){
+                (fc->next_node).insert(make_pair(
+                        it2->first,
+                        id_map.find(it2->second)->second
+                ));
+            }
+        }
+    }
+    void SaveTree(){
+        ofstream ofile;
+        ofile.open("tree");
+        SubSaveTree(ofile, TreeRoot);
+        ofile.close();
+    }
+    void SubSaveTree(ofstream ofile, FieldCache* node){
+        ofile<< node << ":" << node->toString() << endl;
+        for(map<_Coordinate,FieldCache*>::iterator iter=node->next_node.begin();iter!=node->next_node.end();iter++)
+        {
+            SubSaveTree(ofile, iter->second);
+        }
+    }
 };
 /***************************************************************************/
 int main()
@@ -567,5 +728,6 @@ int main()
     ret["response"]["y"] = choice.second;
     Json::FastWriter writer;
     cout << writer.write(ret) << endl;
+    system("pause");
     return 0;
 }
