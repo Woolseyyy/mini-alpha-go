@@ -88,6 +88,15 @@ class Othello
 	int StoneNum[2];//White and Black
 public:
 	_Color ColorToPlay, MyColor;
+	void reset(){
+		for (int i = 0; i<SideLength; i++)
+		{
+			memset(board[i], Empty, sizeof(board[i]));
+		}
+		board[SideLength / 2 - 1][SideLength / 2 - 1] = board[SideLength / 2][SideLength / 2] = WhiteStone;//|w|b|
+		board[SideLength / 2][SideLength / 2 - 1] = board[SideLength / 2 - 1][SideLength / 2] = BlackStone;//|b|w|
+		StoneNum[0] = StoneNum[1] = 2;
+	}
 
 private:
 	string toString() {
@@ -772,8 +781,8 @@ int main()
 	int x, y;
 	type = 1;
 	int count = 0;
-	TIMELIMIT = 5.9*CLOCKS_PER_SEC;
-	while (count < 10000) {
+	TIMELIMIT = 0.9*CLOCKS_PER_SEC;
+	while (count < 10) {
 		cout << "请选择1.AI先手 2.AI后手" << endl;
 		//cin >> type;
 		othello.ColorToPlay = othello.MyColor = 1;
@@ -820,6 +829,7 @@ int main()
 			cout << "黑方胜利" << endl;
 		}
 		count++;
+		othello.reset();
 	}
 
 	saveTree();	
