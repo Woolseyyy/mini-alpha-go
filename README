@@ -1,1 +1,2 @@
-Othello with battle
+oithello with battle
+增加学习功能，学习后，可以根据当前情况判断节点，直接选择，跳过expand和simulation步骤
