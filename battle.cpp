@@ -35,7 +35,7 @@ const _Color White = -1, Black = 1;
 const _GridType WhiteStone = -1, Empty = 0, BlackStone = 1;
 const _Direction North = 0, NorthEast = 1, East = 2, SouthEast = 3, South = 4, SouthWest = 5, West = 6, NorthWest = 7;
 const int dx[] = { 0,1,1,1,0,-1,-1,-1 }, dy[] = { -1,-1,0,1,1,1,0,-1 };
-clock_t t1 = clock();
+clock_t t1, t2;
 clock_t TIMELIMIT = 0.9*CLOCKS_PER_SEC;
 const double UCBC = 0.5;
 const int Threshold = 60;
@@ -88,15 +88,7 @@ class Othello
 	int StoneNum[2];//White and Black
 public:
 	_Color ColorToPlay, MyColor;
-	void reset(){
-		for (int i = 0; i<SideLength; i++)
-		{
-			memset(board[i], Empty, sizeof(board[i]));
-		}
-		board[SideLength / 2 - 1][SideLength / 2 - 1] = board[SideLength / 2][SideLength / 2] = WhiteStone;//|w|b|
-		board[SideLength / 2][SideLength / 2 - 1] = board[SideLength / 2 - 1][SideLength / 2] = BlackStone;//|b|w|
-		StoneNum[0] = StoneNum[1] = 2;
-	}
+	bool Learned;	
 
 private:
 	string toString() {
@@ -108,13 +100,7 @@ private:
 		}
 		return tmpString;
 	}
-	void decodeString(string str) {		
-		for (int i = 0; i < SideLength; i++) {
-			for (int j = 0; j < SideLength; j++) {
-				board[i][j] = stoi(str[i*SideLength + SideLength]+"");
-			}
-		}
-	}
+	
 	void BackUp(FieldCache& cache)
 	{
 		for (int i = 0; i<SideLength; i++)
@@ -413,193 +399,20 @@ private:
 		}
 		return;
 	}
-	int MiniMax(_Color color, int alpha, int beta)
-	{
-		if (isEnd()) return EndJudge(color);
-		FieldCache cache;
-		BackUp(cache);
-		if (color == White)
-		{
-			int best = 10000;
-			for (int i = 0; i<SideLength; i++)
-			{
-				for (int j = 0; j<SideLength; j++)
-				{
-					if (Available(make_pair(i, j), color))
-					{
-						PutStone(make_pair(i, j), color);
-						best = min(best, MiniMax(-color, alpha, beta));
-						beta = min(best, beta);
-						Recovery(cache);
-						if (alpha >= beta) break;//beta剪枝 
-					}
-				}
-			}
-			return best;
-		}
-		else
-		{
-			int best = -10000;
-			for (int i = 0; i<SideLength; i++)
-			{
-				for (int j = 0; j<SideLength; j++)
-				{
-					if (Available(make_pair(i, j), color))
-					{
-						PutStone(make_pair(i, j), color);
-						best = max(best, MiniMax(-color, alpha, beta));
-						alpha = max(best, alpha);
-						Recovery(cache);
-						if (alpha >= beta) break;//alpha剪枝 
-					}
-				}
-			}
-			return best;
-		}
-	}
-
+	
 public:
 	Othello()
 	{
-		for (int i = 0; i<SideLength; i++)
+		for (int i = 0; i < SideLength; i++)
 		{
 			memset(board[i], Empty, sizeof(board[i]));
 		}
 		board[SideLength / 2 - 1][SideLength / 2 - 1] = board[SideLength / 2][SideLength / 2] = WhiteStone;//|w|b|
 		board[SideLength / 2][SideLength / 2 - 1] = board[SideLength / 2 - 1][SideLength / 2] = BlackStone;//|b|w|
-		StoneNum[0] = StoneNum[1] = 2;		
-//		string str;
-//#ifndef _BOTZONE_ONLINE
-//		ifstream is("input.txt");
-//		getline(is, str);
-//		is.close();
-//#else
-//		getline(cin, str);
-//#endif
-//		Json::Reader reader;
-//		Json::Value input;
-//		reader.parse(str, input);
-//
-//		int x, y;
-//		MyColor = input["requests"][(Json::Value::UInt) 0]["x"].asInt() < 0 ? Black : White;
-//		ColorToPlay = MyColor;
-//		int turnID = input["responses"].size();
-//		for (int i = 0; i<turnID; i++)
-//		{
-//			x = input["requests"][i]["x"].asInt();
-//			y = input["requests"][i]["y"].asInt();
-//			if (x >= 0)
-//				PutStone(make_pair(x, y), -MyColor);
-//			x = input["responses"][i]["x"].asInt();
-//			y = input["responses"][i]["y"].asInt();
-//			if (x >= 0)
-//				PutStone(make_pair(x, y), MyColor);
-//		}
-//		x = input["requests"][turnID]["x"].asInt();
-//		y = input["requests"][turnID]["y"].asInt();
-//		if (x >= 0)
-//			PutStone(make_pair(x, y), -MyColor);
-
-		srand((unsigned)time(NULL) + rand());
+		StoneNum[0] = StoneNum[1] = 2;
+		Learned = false;
 	}
 
-	_Coordinate MakeChoice()
-	{
-		/*vector<int>Nexti;
-		vector<int>Nextj;
-		int tmpRand;
-		for (int i = 0; i < SideLength; i++) {
-			for (int j = 0; j < SideLength; j++) {
-				if (Available(make_pair(i, j), MyColor)) {
-					Nexti.push_back(i);
-					Nextj.push_back(j);
-				}
-			}
-		}
-		if (Nexti.size() != 0) {
-			tmpRand = rand() % Nexti.size();
-			return make_pair(Nexti[tmpRand], Nextj[tmpRand]);
-		}
-		else
-			return make_pair(-1, -1);*/
-		if (StoneNum[0] + StoneNum[1] >= 58)
-		{
-			FieldCache cache;
-			_Coordinate choice = make_pair(-1, -1);
-			BackUp(cache);
-			if (MyColor == White)
-			{
-				int result, beta = 10000;
-				for (int i = 0; i<SideLength; i++)
-				{
-					for (int j = 0; j<SideLength; j++)
-					{
-						if (Available(make_pair(i, j), MyColor))//查询搜索表 
-						{
-							PutStone(make_pair(i, j), MyColor);//落子 
-							result = MiniMax(-MyColor, -10000, beta);//求值 
-							if (choice.first == -1)
-							{
-								choice = make_pair(i, j);
-								beta = result;
-							}
-							else if (result<beta)
-							{
-								choice = make_pair(i, j);
-								beta = result;
-							}
-							else if (result == beta)
-							{
-								if (rand() % 2 == 0)
-								{
-									choice = make_pair(i, j);
-								}
-							}
-							Recovery(cache);
-						}
-					}
-				}
-			}
-			else
-			{
-				int result, alpha = -10000;
-				for (int i = 0; i<SideLength; i++)
-				{
-					for (int j = 0; j<SideLength; j++)
-					{
-						if (Available(make_pair(i, j), MyColor))//查询搜索表 
-						{
-							PutStone(make_pair(i, j), MyColor);//落子 
-							result = MiniMax(-MyColor, alpha, 10000);//求值 
-							if (choice.first == -1)
-							{
-								choice = make_pair(i, j);
-								alpha = result;
-							}
-							else if (result>alpha)
-							{
-								choice = make_pair(i, j);
-								alpha = result;
-							}
-							else if (result == alpha)
-							{
-								if (rand() % 2 == 0)
-								{
-									choice = make_pair(i, j);
-								}
-							}
-							Recovery(cache);
-						}
-					}
-				}
-			}
-			return choice;
-		}
-		else
-		{
-			return MCTS();
-		}
-	}
 	_Coordinate MCTS()
 	{
 		FieldCache *root_node, *current_node;
@@ -607,56 +420,58 @@ public:
 		pair<FieldCache*, bool> res;
 		int r[2];
 		BackUp(*root_node);
-		while (clock() - t1<TIMELIMIT)
+		while (clock() - t1 < TIMELIMIT)
 		{
 			current_node = root_node;
 			do
 			{
 				res = Selection(current_node);
 				current_node = res.first;
-			} while (res.second);		
-			
-			//学习后版本，如果所有下一步都已经遇见过，不再拓展，直接跳出，选择最佳
-			//vector<_Coordinate> alterlist;
-			//_Coordinate choice;
-			//map<_SaveNode, _Value>::iterator iter;
-			//bool newNode = false;
-			//for (int i = 0; i<SideLength; i++)
-			//{
-			//	for (int j = 0; j<SideLength; j++)
-			//	{
-			//		if (Available(make_pair(i, j), ColorToPlay))
-			//		{						
-			//			PutStone(make_pair(i, j), ColorToPlay);
-			//			ColorToPlay = -ColorToPlay;
-			//			if (!newNode) {
-			//				iter = savedTree.find(make_pair(toString(), ColorToPlay));
-			//				if (iter == savedTree.end()) {
-			//					alterlist.push_back(make_pair(i, j));
-			//					newNode = true;
-			//				}
-			//				else {
-			//					choice = make_pair(i, j);
-			//					FieldCache *next = new FieldCache();	
-			//					next->visitcount = iter->second.first;
-			//					next->totalrank = iter->second.second;
-			//					next->pre_node = current_node;
-			//					BackUp(*next);
-			//					current_node->next_node.insert(make_pair(choice, next));
-			//				}
-			//			}
-			//			Recovery(*current_node);
-			//		}
-			//	}
-			//}	
-			//if (!newNode)
-			//	break;
+			} while (res.second);
 
-			//current_node = Expand(current_node, alterlist); //学习后版本，只拓展未遇见过的结点
-			current_node = Expand(current_node); //学习版本，拓展所有可能
+			//学习后版本，如果所有下一步都已经遇见过，不再拓展，直接跳出，选择最佳
+			if (Learned) {
+				vector<_Coordinate> alterlist;
+				_Coordinate choice;
+				map<_SaveNode, _Value>::iterator iter;
+				bool newNode = false;
+				for (int i = 0; i < SideLength; i++)
+				{
+					for (int j = 0; j < SideLength; j++)
+					{
+						if (Available(make_pair(i, j), ColorToPlay))
+						{
+							PutStone(make_pair(i, j), ColorToPlay);
+							ColorToPlay = -ColorToPlay;
+							iter = savedTree.find(make_pair(toString(), ColorToPlay));
+							if (iter == savedTree.end()) {
+								alterlist.push_back(make_pair(i, j));
+								newNode = true;
+							}
+							else {
+								choice = make_pair(i, j);
+								FieldCache *next = new FieldCache();
+								next->visitcount = iter->second.first;
+								next->totalrank = iter->second.second;
+								next->pre_node = current_node;
+								BackUp(*next);
+								current_node->next_node.insert(make_pair(choice, next));
+							}
+						}
+						Recovery(*current_node);
+					}
+				}
+				if (!newNode)
+					break;
+				current_node = Expand(current_node, alterlist); //学习后版本，只拓展未遇见过的结点
+			}
+			if (!Learned) {
+				current_node = Expand(current_node); //学习版本，拓展所有可能
+			}
 			Simulation(current_node, r);
 			BackPropagation(current_node, r);			
-						
+				
+			//保存结点
 			map<_SaveNode, _Value>::iterator it = savedTree.find(make_pair(toString(), ColorToPlay));
 			if (it == savedTree.end()){				
 				savedTree.insert(make_pair(make_pair(toString(), ColorToPlay), make_pair(current_node->visitcount, current_node->totalrank)));
@@ -667,19 +482,17 @@ public:
 				current_node->lastTotalRank = current_node->totalrank;
 				current_node->lastVisitCount = current_node->visitcount;
 			}
+
 			Recovery(*root_node);
 		}
+
+
 		_Coordinate choice = make_pair(-1, -1);
 		double temp, best = -100;
-//#ifndef _BOTZONE_ONLINE
-//		cout << root_node->visitcount << endl;
-//#endif
+
 		for (map<_Coordinate, FieldCache*>::iterator iter = root_node->next_node.begin(); iter != root_node->next_node.end(); iter++)
 		{
 			temp = iter->second->value();
-//#ifndef _BOTZONE_ONLINE
-//			cout << iter->first.second << "," << iter->first.first << " " << iter->second->visitcount << " " << temp << endl;
-//#endif
 			if (temp>best)
 			{
 				choice = iter->first;
@@ -688,11 +501,22 @@ public:
 		}		
 		return choice;
 	}
+
+	void reset() {
+		for (int i = 0; i<SideLength; i++)
+		{
+			memset(board[i], Empty, sizeof(board[i]));
+		}
+		board[SideLength / 2 - 1][SideLength / 2 - 1] = board[SideLength / 2][SideLength / 2] = WhiteStone;//|w|b|
+		board[SideLength / 2][SideLength / 2 - 1] = board[SideLength / 2 - 1][SideLength / 2] = BlackStone;//|b|w|
+		StoneNum[0] = StoneNum[1] = 2;
+		Learned = false;
+	}
+
 	void DebugPrint()
 	{
 #ifndef _BOTZONE_ONLINE
 		system("color f0");
-		//		system("cls");//清屏 
 		cout << "我的颜色为:" << ((MyColor == White) ? "○\n" : "●\n");
 		cout << "现在要落子的颜色为:" << ((ColorToPlay == White) ? "○\n" : "●\n");//提示当前要落子的颜色 
 		cout << "    0     1     2     3     4     5     6     7\n";//输出列号 
@@ -774,44 +598,64 @@ void saveTree()
 /***************************************************************************/
 int main()
 {
-	//getTree();
+	getTree();
 	_Coordinate choice;
 	Othello othello;
 	int type;
 	int x, y;
+	clock_t total1, total2;
 	type = 1;
 	int count = 0;
+	total1 = total2 = 0;
 	TIMELIMIT = 0.9*CLOCKS_PER_SEC;
-	while (count < 10) {
+	while (count < 10000 ) {
 		cout << "请选择1.AI先手 2.AI后手" << endl;
 		//cin >> type;
-		othello.ColorToPlay = othello.MyColor = 1;
+		type = -1;
+		if (type == 1)
+			othello.ColorToPlay = othello.MyColor = 1;
+		else
+			othello.ColorToPlay = othello.MyColor = 1;
 		
 		if (type == 1) {
 			t1 = clock();
 			choice = othello.MCTS();
+			t2 = clock();
+			total1 += t2 - t1;
+			cout << "单步用时： " << (t2 - t1) / CLOCKS_PER_SEC << "s  " << "总计用时： " << total1 / CLOCKS_PER_SEC << "s" << endl;
 			cout << "落子位置： " << choice.first << ", " << choice.second << endl;
 			othello.PutStone(choice, othello.ColorToPlay);
 			othello.ColorToPlay = -othello.ColorToPlay;
 			othello.MyColor = -othello.MyColor;
 		}
 		othello.DebugPrint();
+
 		while (!othello.isEnd()) {
 			/*cout << "请输入坐标： ";
 			cin >> x >> y;
 			choice = make_pair(x, y);*/
 			t1 = clock();
+			//othello.Learned = true;
+			//TIMELIMIT = 58.9*CLOCKS_PER_SEC;
 			choice = othello.MCTS();
-			//choice = othello.MakeChoice();
+			t2 = clock();
+			total2 += t2 - t1;
+			cout << "单步用时： " << (t2 - t1) / CLOCKS_PER_SEC << "s  " << "总计用时： " << total2 / CLOCKS_PER_SEC << "s" << endl;
 			cout << "落子位置： " << choice.first << ", " << choice.second << endl;
 			othello.PutStone(choice, othello.ColorToPlay);
 			othello.ColorToPlay = -othello.ColorToPlay;
 			othello.MyColor = -othello.MyColor;
 			othello.DebugPrint();
-			Sleep(1000);
-			//TIMELIMIT = 58.9*CLOCKS_PER_SEC;
+
+			//Sleep(1000);
+			
+			//TIMELIMIT = 0.9*CLOCKS_PER_SEC;
 			t1 = clock();
+			//othello.Learned = false;
 			choice = othello.MCTS();
+			t2 = clock();
+			total1 += t2 - t1;
+			cout << "单步用时： " << (t2 - t1) / CLOCKS_PER_SEC << "s  " << "总计用时： " << total1 / CLOCKS_PER_SEC << "s" << endl;
 			cout << "落子位置： " << choice.first << ", " << choice.second << endl;
 			othello.PutStone(choice, othello.ColorToPlay);
 			othello.ColorToPlay = -othello.ColorToPlay;
@@ -830,15 +674,10 @@ int main()
 		}
 		count++;
 		othello.reset();
+		//saveTree();
 	}
 
 	saveTree();	
 
-	/*Json::Value ret;
-	ret["response"]["x"] = choice.first;
-	ret["response"]["y"] = choice.second;
-	Json::FastWriter writer;
-	cout << writer.write(ret) << endl;*/
-	//system("pause");
 	return 0;
 }
