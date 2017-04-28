@@ -66,6 +66,7 @@ public:
 		StoneNum[0] = StoneNum[1] = 0;
 		pre_node = NULL;
 		visitcount = totalrank = 0;
+		lastVisitCount = lastTotalRank = 0;
 	}
 	_GridType board[SideLength][SideLength];
 	int StoneNum[2];
@@ -73,6 +74,7 @@ public:
 	FieldCache* pre_node;
 	map<_Coordinate, FieldCache*> next_node;
 	int visitcount, totalrank;
+	int lastVisitCount, lastTotalRank;
 	double value() const
 	{
 		if (visitcount == 0) return -100;
@@ -606,53 +608,55 @@ public:
 			} while (res.second);		
 			
 			//学习后版本，如果所有下一步都已经遇见过，不再拓展，直接跳出，选择最佳
-			vector<_Coordinate> alterlist;
-			_Coordinate choice;
-			map<_SaveNode, _Value>::iterator iter;
-			bool newNode = false;
-			for (int i = 0; i<SideLength; i++)
-			{
-				for (int j = 0; j<SideLength; j++)
-				{
-					if (Available(make_pair(i, j), ColorToPlay))
-					{						
-						PutStone(make_pair(i, j), ColorToPlay);
-						ColorToPlay = -ColorToPlay;
-						if (!newNode) {
-							iter = savedTree.find(make_pair(toString(), ColorToPlay));
-							if (iter == savedTree.end()) {
-								alterlist.push_back(make_pair(i, j));
-								newNode = true;
-							}
-							else {
-								choice = make_pair(i, j);
-								FieldCache *next = new FieldCache();	
-								next->visitcount = iter->second.first;
-								next->totalrank = iter->second.second;
-								next->pre_node = current_node;
-								BackUp(*next);
-								current_node->next_node.insert(make_pair(choice, next));
-							}
-						}
-						Recovery(*current_node);
-					}
-				}
-			}	
-			if (!newNode)
-				break;
+			//vector<_Coordinate> alterlist;
+			//_Coordinate choice;
+			//map<_SaveNode, _Value>::iterator iter;
+			//bool newNode = false;
+			//for (int i = 0; i<SideLength; i++)
+			//{
+			//	for (int j = 0; j<SideLength; j++)
+			//	{
+			//		if (Available(make_pair(i, j), ColorToPlay))
+			//		{						
+			//			PutStone(make_pair(i, j), ColorToPlay);
+			//			ColorToPlay = -ColorToPlay;
+			//			if (!newNode) {
+			//				iter = savedTree.find(make_pair(toString(), ColorToPlay));
+			//				if (iter == savedTree.end()) {
+			//					alterlist.push_back(make_pair(i, j));
+			//					newNode = true;
+			//				}
+			//				else {
+			//					choice = make_pair(i, j);
+			//					FieldCache *next = new FieldCache();	
+			//					next->visitcount = iter->second.first;
+			//					next->totalrank = iter->second.second;
+			//					next->pre_node = current_node;
+			//					BackUp(*next);
+			//					current_node->next_node.insert(make_pair(choice, next));
+			//				}
+			//			}
+			//			Recovery(*current_node);
+			//		}
+			//	}
+			//}	
+			//if (!newNode)
+			//	break;
 
-			current_node = Expand(current_node, alterlist); //学习后版本，只拓展未遇见过的结点
-	//		current_node = Expand(current_node); //学习版本，拓展所有可能
+			//current_node = Expand(current_node, alterlist); //学习后版本，只拓展未遇见过的结点
+			current_node = Expand(current_node); //学习版本，拓展所有可能
 			Simulation(current_node, r);
 			BackPropagation(current_node, r);			
-			
+						
 			map<_SaveNode, _Value>::iterator it = savedTree.find(make_pair(toString(), ColorToPlay));
 			if (it == savedTree.end()){				
 				savedTree.insert(make_pair(make_pair(toString(), ColorToPlay), make_pair(current_node->visitcount, current_node->totalrank)));
 			}
 			else {
-				it->second.first = current_node->visitcount;
-				it->second.second = current_node->totalrank;
+				it->second.first += current_node->visitcount - current_node->lastVisitCount;
+				it->second.second += current_node->totalrank - current_node->lastTotalRank;
+				current_node->lastTotalRank = current_node->totalrank;
+				current_node->lastVisitCount = current_node->visitcount;
 			}
 			Recovery(*root_node);
 		}
@@ -761,7 +765,7 @@ void saveTree()
 /***************************************************************************/
 int main()
 {
-	getTree();
+	//getTree();
 	_Coordinate choice;
 	Othello othello;
 	int type;
@@ -769,7 +773,7 @@ int main()
 	type = 1;
 	int count = 0;
 	TIMELIMIT = 5.9*CLOCKS_PER_SEC;
-	while (count < 10) {
+	while (count < 10000) {
 		cout << "请选择1.AI先手 2.AI后手" << endl;
 		//cin >> type;
 		othello.ColorToPlay = othello.MyColor = 1;
