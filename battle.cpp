@@ -606,7 +606,7 @@ public:
 			} while (res.second);		
 			
 			//学习后版本，如果所有下一步都已经遇见过，不再拓展，直接跳出，选择最佳
-			/*vector<_Coordinate> alterlist;
+			vector<_Coordinate> alterlist;
 			_Coordinate choice;
 			map<_SaveNode, _Value>::iterator iter;
 			bool newNode = false;
@@ -626,7 +626,9 @@ public:
 							}
 							else {
 								choice = make_pair(i, j);
-								FieldCache *next = new FieldCache();															
+								FieldCache *next = new FieldCache();	
+								next->visitcount = iter->second.first;
+								next->totalrank = iter->second.second;
 								next->pre_node = current_node;
 								BackUp(*next);
 								current_node->next_node.insert(make_pair(choice, next));
@@ -637,10 +639,10 @@ public:
 				}
 			}	
 			if (!newNode)
-				break;*/
+				break;
 
-//			current_node = Expand(current_node, alterlist); //学习后版本，只拓展未遇见过的结点
-			current_node = Expand(current_node); //学习版本，拓展所有可能
+			current_node = Expand(current_node, alterlist); //学习后版本，只拓展未遇见过的结点
+	//		current_node = Expand(current_node); //学习版本，拓展所有可能
 			Simulation(current_node, r);
 			BackPropagation(current_node, r);			
 			
@@ -759,18 +761,19 @@ void saveTree()
 /***************************************************************************/
 int main()
 {
-	//getTree();
+	getTree();
 	_Coordinate choice;
 	Othello othello;
 	int type;
 	int x, y;
 	type = 1;
 	int count = 0;
+	TIMELIMIT = 5.9*CLOCKS_PER_SEC;
 	while (count < 10) {
 		cout << "请选择1.AI先手 2.AI后手" << endl;
 		//cin >> type;
 		othello.ColorToPlay = othello.MyColor = 1;
-		TIMELIMIT = 0.9*CLOCKS_PER_SEC;
+		
 		if (type == 1) {
 			t1 = clock();
 			choice = othello.MCTS();
