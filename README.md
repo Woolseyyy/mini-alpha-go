@@ -1,5 +1,6 @@
 # mini-alpha-go
 Mini implement of Alpha-go
+
 人工智能课的一个小作业
 
 # Method
